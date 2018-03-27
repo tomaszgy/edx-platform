@@ -40,7 +40,12 @@ from openedx.core.djangoapps.programs.utils import ProgramDataExtender, ProgramP
 from openedx.core.djangoapps.site_configuration import helpers as configuration_helpers
 from openedx.core.djangoapps.util.maintenance_banner import add_maintenance_banner
 from openedx.core.djangoapps.waffle_utils import WaffleFlag, WaffleFlagNamespace
-from openedx.features.enterprise_support.api import get_dashboard_consent_notification
+from openedx.features.enterprise_support.api import (
+    consent_needed_for_courses,
+    enterprise_customer_for_request,
+    get_dashboard_consent_notification
+)
+
 from shoppingcart.api import order_history
 from shoppingcart.models import CourseRegistrationCode, DonationConfiguration
 from student.cookies import set_user_info_cookie
@@ -624,11 +629,17 @@ def student_dashboard(request):
         )
 
     enterprise_message = get_dashboard_consent_notification(request, user, course_enrollments)
-
-    # Disable lookup of Enterprise consent_required_course due to ENT-727
-    # Will re-enable after fixing WL-1315
+    enterprise_customer = enterprise_customer_for_request(request)
     consent_required_courses = set()
     enterprise_customer_name = None
+    if enterprise_customer:
+        course_consents = consent_needed_for_courses(request.user,
+                                                     [str(enrollment.course_id) for enrollment in course_enrollments])
+        consent_required_courses = {
+             enrollment.course_id for enrollment in course_enrollments
+             if course_consents[str(enrollment.course_id)] is True
+         }
+        enterprise_customer_name = enterprise_customer['name']
 
     # Account activation message
     account_activation_messages = [
