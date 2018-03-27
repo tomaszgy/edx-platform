@@ -119,7 +119,7 @@ def add_email_marketing_cookies(sender, response=None, user=None,
 
 
 @receiver(REGISTER_USER)
-def email_marketing_register_user(sender, user, registration,
+def email_marketing_register_user(sender, user, registration, send_welcome_email,
                                   **kwargs):  # pylint: disable=unused-argument
     """
     Called after user created and saved
@@ -179,7 +179,7 @@ def email_marketing_user_field_changed(sender, user=None, table=None, setting=No
 
         # set the activation flag when the user is marked as activated
         update_user.delay(_create_sailthru_user_vars(user, user.profile), user.email, site=_get_current_site(),
-                          new_user=False, activation=(setting == 'is_active') and new_value is True)
+                          new_user=False, send_welcome_email=(setting == 'is_active') and new_value is True)
 
     elif setting == 'email':
         # email update is special case
