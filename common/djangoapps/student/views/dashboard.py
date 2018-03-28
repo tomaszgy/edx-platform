@@ -17,6 +17,7 @@ from django.utils.translation import ugettext as _
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
 
 from opaque_keys.edx.keys import CourseKey
+from opaque_keys.edx.locator import CourseLocator
 from pytz import UTC
 from six import text_type, iteritems
 
@@ -41,8 +42,8 @@ from openedx.core.djangoapps.site_configuration import helpers as configuration_
 from openedx.core.djangoapps.util.maintenance_banner import add_maintenance_banner
 from openedx.core.djangoapps.waffle_utils import WaffleFlag, WaffleFlagNamespace
 from openedx.features.enterprise_support.api import (
-    consent_needed_for_courses,
     enterprise_customer_for_request,
+    get_consent_required_courses,
     get_dashboard_consent_notification
 )
 
@@ -633,12 +634,11 @@ def student_dashboard(request):
     consent_required_courses = set()
     enterprise_customer_name = None
     if enterprise_customer:
-        course_consents = consent_needed_for_courses(request.user,
-                                                     [str(enrollment.course_id) for enrollment in course_enrollments])
+        course_consents = get_consent_required_courses(request.user,
+                                                       [str(enrollment.course_id) for enrollment in course_enrollments])
         consent_required_courses = {
-             enrollment.course_id for enrollment in course_enrollments
-             if course_consents[str(enrollment.course_id)] is True
-         }
+            CourseLocator.from_string(course_id) for course_id in course_consents
+        }
         enterprise_customer_name = enterprise_customer['name']
 
     # Account activation message
