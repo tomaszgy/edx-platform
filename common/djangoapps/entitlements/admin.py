@@ -65,6 +65,14 @@ class CourseEntitlementSupportDetailAdmin(admin.ModelAdmin):
     form = CourseEntitlementSupportDetailForm
 
 
+class CourseEntitlementPolicyForm(forms.ModelForm):
+    """Form for adding entitlement support details, exists mostly for testing purposes"""
+    def __init__(self, *args, **kwargs):
+        super(CourseEntitlementPolicyForm, self).__init__(*args, **kwargs)
+        self.fields['site'].required = False
+        self.fields['mode'].required = False 
+
+
 @admin.register(CourseEntitlementPolicy)
 class CourseEntitlementPolicyAdmin(admin.ModelAdmin):
     """
@@ -75,3 +83,4 @@ class CourseEntitlementPolicyAdmin(admin.ModelAdmin):
                     'regain_period',
                     'mode',
                     'site')
+    form = CourseEntitlementPolicyForm
