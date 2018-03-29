@@ -1926,11 +1926,6 @@ def reset_student_attempts(request, course_id):
             "all_students and delete_module are mutually exclusive."
         )
 
-    # instructor authorization
-    if all_students or delete_module:
-        if not has_access(request.user, 'instructor', course):
-            return HttpResponseForbidden("Requires instructor access.")
-
     try:
         module_state_key = UsageKey.from_string(problem_to_reset).map_into_course(course_id)
     except InvalidKeyError:
@@ -2014,11 +2009,6 @@ def reset_student_attempts_for_entrance_exam(request, course_id):  # pylint: dis
             _("all_students and delete_module are mutually exclusive.")
         )
 
-    # instructor authorization
-    if all_students or delete_module:
-        if not has_access(request.user, 'instructor', course):
-            return HttpResponseForbidden(_("Requires instructor access."))
-
     try:
         entrance_exam_key = UsageKey.from_string(course.entrance_exam_id).map_into_course(course_id)
         if delete_module:
@@ -2044,7 +2034,7 @@ def reset_student_attempts_for_entrance_exam(request, course_id):  # pylint: dis
 @require_POST
 @ensure_csrf_cookie
 @cache_control(no_cache=True, no_store=True, must_revalidate=True)
-@require_level('instructor')
+@require_level('staff')
 @require_post_params(problem_to_reset="problem urlname to reset")
 @common_exceptions_400
 def rescore_problem(request, course_id):
@@ -2060,14 +2050,22 @@ def rescore_problem(request, course_id):
     all_students and unique_student_identifier cannot both be present.
     """
     course_id = CourseKey.from_string(course_id)
+    course = get_course_with_access(
+        request.user, 'staff', course_id, depth=None
+    )
+    all_students = _get_boolean_param(request, 'all_students')
+
+    # instructor authorization
+    if all_students:
+        if not has_access(request.user, 'instructor', course):
+            return HttpResponseForbidden("Requires instructor access.")
+
+    only_if_higher = _get_boolean_param(request, 'only_if_higher')
     problem_to_reset = strip_if_string(request.POST.get('problem_to_reset'))
     student_identifier = request.POST.get('unique_student_identifier', None)
     student = None
     if student_identifier is not None:
         student = get_student_from_identifier(student_identifier)
-
-    all_students = _get_boolean_param(request, 'all_students')
-    only_if_higher = _get_boolean_param(request, 'only_if_higher')
 
     if not (problem_to_reset and (all_students or student)):
         return HttpResponseBadRequest("Missing query parameters.")
@@ -2116,7 +2114,7 @@ def rescore_problem(request, course_id):
 @require_POST
 @ensure_csrf_cookie
 @cache_control(no_cache=True, no_store=True, must_revalidate=True)
-@require_level('instructor')
+@require_level('staff')
 @require_post_params(problem_to_reset="problem urlname to reset", score='overriding score')
 @common_exceptions_400
 def override_problem_score(request, course_id):
@@ -2142,7 +2140,7 @@ def override_problem_score(request, course_id):
         return _create_error_response(request, "Unable to parse problem id {}.".format(problem_to_reset))
 
     # check the user's access to this specific problem
-    if not has_access(request.user, "instructor", modulestore().get_item(usage_key)):
+    if not has_access(request.user, "staff", modulestore().get_item(usage_key)):
         _create_error_response(request, "User {} does not have permission to override scores for problem {}.".format(
             request.user.id,
             problem_to_reset
@@ -2173,7 +2171,7 @@ def override_problem_score(request, course_id):
 @require_POST
 @ensure_csrf_cookie
 @cache_control(no_cache=True, no_store=True, must_revalidate=True)
-@require_level('instructor')
+@require_level('staff')
 @common_exceptions_400
 def rescore_entrance_exam(request, course_id):
     """
@@ -2190,14 +2188,17 @@ def rescore_entrance_exam(request, course_id):
     course = get_course_with_access(
         request.user, 'staff', course_id, depth=None
     )
+    all_students = _get_boolean_param(request, 'all_students')
+    # instructor authorization
+    if all_students:
+        if not has_access(request.user, 'instructor', course):
+            return HttpResponseForbidden("Requires instructor access.")
 
     student_identifier = request.POST.get('unique_student_identifier', None)
     only_if_higher = request.POST.get('only_if_higher', None)
     student = None
     if student_identifier is not None:
         student = get_student_from_identifier(student_identifier)
-
-    all_students = _get_boolean_param(request, 'all_students')
 
     if not course.entrance_exam_id:
         return HttpResponseBadRequest(
